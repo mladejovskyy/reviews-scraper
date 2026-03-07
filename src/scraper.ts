@@ -5,6 +5,7 @@ import {
   parseReviewCard,
   expandAllReviews,
   getLoadedReviewCount,
+  findReviewsTab,
   type Review,
 } from "./parser";
 
@@ -21,6 +22,13 @@ export interface ScrapeOptions {
   headless: boolean;
 }
 
+/** Extract a human-readable place name from a Google Maps URL */
+function extractPlaceName(url: string): string | null {
+  const match = decodeURIComponent(url).match(/\/maps\/place\/([^/@]+)/);
+  if (!match) return null;
+  return match[1].replace(/\+/g, " ");
+}
+
 export async function scrapeReviews(
   options: ScrapeOptions
 ): Promise<ScrapeResult> {
@@ -28,7 +36,11 @@ export async function scrapeReviews(
 
   const browser = await chromium.launch({
     headless,
-    args: ["--disable-blink-features=AutomationControlled"],
+    args: [
+      "--disable-blink-features=AutomationControlled",
+      "--no-first-run",
+      "--no-default-browser-check",
+    ],
   });
 
   try {
@@ -36,7 +48,24 @@ export async function scrapeReviews(
       locale: "en-US",
       userAgent:
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      viewport: { width: 1280, height: 800 },
     });
+
+    // Stealth: hide automation signals before any page loads
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, "webdriver", {
+        get: () => false,
+      });
+      Object.defineProperty(navigator, "plugins", {
+        get: () => [1, 2, 3, 4, 5],
+      });
+      Object.defineProperty(navigator, "languages", {
+        get: () => ["en-US", "en"],
+      });
+      // @ts-ignore
+      window.chrome = { runtime: {} };
+    });
+
     const page = await context.newPage();
 
     // Navigate directly to the place URL
@@ -45,7 +74,6 @@ export async function scrapeReviews(
     await randomDelay(2000, 3000);
 
     // Handle Google consent dialog (EU GDPR)
-    // Consent click causes a redirect that loses the place — re-navigate after
     const consentButton = await page.$(
       'button[aria-label="Accept all"], form[action*="consent"] button'
     );
@@ -54,13 +82,40 @@ export async function scrapeReviews(
       await consentButton.click();
       await randomDelay(2000, 3000);
 
-      // Re-navigate to the original URL now that consent cookies are set
+      // Re-navigate — consent redirect loses the place data
       console.log("Re-navigating to place URL...");
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
       await randomDelay(2000, 3000);
     }
 
-    // Wait for the place details to load
+    // Check if the place actually loaded by looking for an h1 with text
+    const h1 = await page.$('h1');
+    const h1Text = h1 ? await h1.textContent() : null;
+    const placeName = extractPlaceName(url);
+
+    // If place didn't load (Google stripped the URL), use search as fallback
+    if (!h1Text?.trim() && placeName) {
+      console.log(`Place didn't load via URL. Searching for "${placeName}"...`);
+      const searchBox = await page.$('input#searchboxinput, input[name="q"]');
+      if (searchBox) {
+        await searchBox.click();
+        await searchBox.fill(placeName);
+        await page.keyboard.press("Enter");
+        await randomDelay(3000, 4000);
+
+        // Wait for place to load from search
+        await page
+          .waitForSelector('h1', { timeout: 15000 })
+          .catch(() => {
+            throw new Error(
+              `Could not find place "${placeName}". Try a more specific search term or URL.`
+            );
+          });
+        await randomDelay(1000, 2000);
+      }
+    }
+
+    // Verify place loaded
     console.log("Waiting for place to load...");
     await page
       .waitForSelector('h1', { timeout: 15000 })
@@ -69,14 +124,22 @@ export async function scrapeReviews(
           "Place details did not load. Check that the URL points to a valid Google Maps place."
         );
       });
+
+    const loadedName = await page.$eval('h1', (el) => el.textContent?.trim() ?? '').catch(() => '');
+    if (loadedName) {
+      console.log(`Place loaded: ${loadedName}`);
+    }
     await randomDelay(500, 1000);
 
     // Click Reviews tab if not already active
-    const reviewsTab = await page.$(SELECTORS.reviewsTab);
+    const reviewsTab = await findReviewsTab(page);
     if (reviewsTab) {
-      console.log("Clicking Reviews tab...");
+      const tabText = await reviewsTab.textContent() ?? "";
+      console.log(`Clicking Reviews tab: "${tabText.trim()}"...`);
       await reviewsTab.click();
       await randomDelay(2000, 3000);
+    } else {
+      console.log("Warning: Could not find Reviews tab. Continuing anyway...");
     }
 
     // Wait for review cards to appear

@@ -11,15 +11,32 @@ export interface Review {
 
 export const SELECTORS = {
   reviewCard: 'div[data-review-id], .jftiEf',
-  stars: 'span[role="img"][aria-label*="star"]',
+  // Stars: aria-label contains a digit followed by a space — works in any language
+  stars: 'span[role="img"]',
   reviewText: ".wiI7pd",
   reviewerName: '.d4r55, button[data-href*="/maps/contrib/"] > div',
   date: ".rsqaWe",
   profileImage: 'img[src*="googleusercontent"]',
-  moreButton: 'button[aria-label="See more"]',
+  // "See more" / "Zobrazit více" etc. — match by class instead
+  moreButton: 'button.w8nwRe.kyuRq',
   scrollablePanel: 'div[role="feed"], .m6QErb.DxyBCb',
-  reviewsTab: 'button[aria-label*="Reviews"]',
+  // Reviews tab: use role="tab" and match the tab that contains a review count (digits in parentheses)
+  reviewsTab: 'button[role="tab"]',
 } as const;
+
+/** Find the Reviews tab among all tabs — it's the one with a number (review count) */
+export async function findReviewsTab(page: Page) {
+  const tabs = await page.$$(SELECTORS.reviewsTab);
+  for (const tab of tabs) {
+    const text = await tab.textContent() ?? "";
+    // The reviews tab contains a count in parentheses or just has digits, e.g. "Reviews (123)" or "Recenze(123)"
+    if (/\(\d+\)/.test(text) || /recenz|review/i.test(text)) {
+      return tab;
+    }
+  }
+  // Fallback: typically the 2nd tab
+  return tabs.length >= 2 ? tabs[1] : null;
+}
 
 export async function parseReviewCard(
   card: ElementHandle
