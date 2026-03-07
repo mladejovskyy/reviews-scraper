@@ -15,17 +15,23 @@ bunx playwright install chromium
 ## Usage
 
 ```bash
-bun run src/index.ts "<google-maps-url>" --max=50 --output=json
+# Use single quotes to prevent shell expansion of ! characters in URLs
+bun run src/index.ts 'https://www.google.com/maps/place/...' --max=50
+
+# Show browser window for debugging
+bun run src/index.ts 'https://www.google.com/maps/place/...' --max=5 --no-headless
 ```
 
 ### Options
 
-| Flag       | Default | Description                      |
-| ---------- | ------- | -------------------------------- |
-| `--max`    | `50`    | Maximum number of reviews to scrape |
-| `--output` | `json`  | Output format (`json`)           |
+| Flag            | Default | Description                         |
+| --------------- | ------- | ----------------------------------- |
+| `--max`         | `50`    | Maximum number of reviews to scrape |
+| `--output`      | `json`  | Output format (`json`)              |
+| `--no-headless` | `false` | Show browser window for debugging   |
+| `--help`        |         | Show usage info                     |
 
-Output is saved to the `output/` directory.
+Output is saved to the `output/` directory with a timestamped filename.
 
 ## Output Format
 
