@@ -1,4 +1,5 @@
 import { parseArgs } from "util";
+import { mkdirSync } from "fs";
 import { isValidGoogleMapsUrl, getOutputFilePath } from "./utils";
 import { scrapeReviews } from "./scraper";
 
@@ -9,10 +10,11 @@ Usage:
   bun run src/index.ts <google-maps-url> [options]
 
 Options:
-  --max <number>    Maximum reviews to scrape (default: 50)
-  --output <format> Output format: json (default: json)
-  --no-headless     Show browser window for debugging
-  --help            Show this help message
+  --max <number>       Maximum reviews to scrape (default: 50)
+  --min-stars <1-5>    Only include reviews with this rating or higher
+  --output <format>    Output format: json (default: json)
+  --no-headless        Show browser window for debugging
+  --help               Show this help message
 
 Example:
   bun run src/index.ts 'https://www.google.com/maps/place/...' --max=20
@@ -25,6 +27,7 @@ function main() {
     args: Bun.argv.slice(2),
     options: {
       max: { type: "string", default: "50" },
+      "min-stars": { type: "string" },
       output: { type: "string", default: "json" },
       "no-headless": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
@@ -58,6 +61,15 @@ function main() {
     process.exit(1);
   }
 
+  let minStars: number | undefined;
+  if (values["min-stars"]) {
+    minStars = parseInt(values["min-stars"], 10);
+    if (isNaN(minStars) || minStars < 1 || minStars > 5) {
+      console.error("Error: --min-stars must be a number between 1 and 5.\n");
+      process.exit(1);
+    }
+  }
+
   const outputFormat = values.output!;
   if (outputFormat !== "json") {
     console.error("Error: Only JSON output is currently supported.\n");
@@ -66,19 +78,23 @@ function main() {
 
   const headless = !values["no-headless"];
 
-  run(url, maxReviews, outputFormat, headless);
+  // Ensure output directories exist
+  mkdirSync("output/images", { recursive: true });
+
+  run(url, maxReviews, outputFormat, headless, minStars);
 }
 
 async function run(
   url: string,
   maxReviews: number,
   outputFormat: string,
-  headless: boolean
+  headless: boolean,
+  minStars?: number
 ) {
   try {
     console.log(`\nScraping reviews from:\n  ${url}\n`);
 
-    const result = await scrapeReviews({ url, maxReviews, headless });
+    const result = await scrapeReviews({ url, maxReviews, headless, minStars });
 
     const outputPath = getOutputFilePath(outputFormat);
     await Bun.write(outputPath, JSON.stringify(result, null, 2));

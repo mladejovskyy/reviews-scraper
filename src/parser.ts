@@ -6,7 +6,15 @@ export interface Review {
   text: string;
   stars: number;
   profilePicUrl: string;
+  profilePicPath?: string;
   date: string;
+}
+
+export interface Business {
+  name: string;
+  rating: number;
+  totalReviews: number;
+  address: string;
 }
 
 export const SELECTORS = {
@@ -22,6 +30,11 @@ export const SELECTORS = {
   scrollablePanel: 'div[role="feed"], .m6QErb.DxyBCb',
   // Reviews tab: use role="tab" and match the tab that contains a review count (digits in parentheses)
   reviewsTab: 'button[role="tab"]',
+  // Business metadata selectors
+  businessName: 'h1',
+  businessRating: 'div.F7nice span[aria-hidden="true"]',
+  businessReviewCount: 'div.F7nice span[aria-label]',
+  businessAddress: 'button[data-item-id="address"] div.fontBodyMedium, button[data-item-id="address"] .Io6YTe',
 } as const;
 
 /** Find the Reviews tab among all tabs — it's the one with a number (review count) */
@@ -82,4 +95,29 @@ export async function expandAllReviews(page: Page): Promise<void> {
 
 export async function getLoadedReviewCount(page: Page): Promise<number> {
   return (await page.$$(SELECTORS.reviewCard)).length;
+}
+
+export async function parseBusinessInfo(page: Page): Promise<Business> {
+  const name = await page
+    .$eval(SELECTORS.businessName, (el) => el.textContent?.trim() ?? "")
+    .catch(() => "");
+
+  const ratingText = await page
+    .$eval(SELECTORS.businessRating, (el) => el.textContent?.trim() ?? "")
+    .catch(() => "");
+  const rating = parseFloat(ratingText) || 0;
+
+  const reviewCountText = await page
+    .$eval(SELECTORS.businessReviewCount, (el) => el.getAttribute("aria-label") ?? "")
+    .catch(() => "");
+  const countMatch = reviewCountText.match(/([\d,. ]+)/);
+  const totalReviews = countMatch
+    ? parseInt(countMatch[1].replace(/[,.\s]/g, ""), 10)
+    : 0;
+
+  const address = await page
+    .$eval(SELECTORS.businessAddress, (el) => el.textContent?.trim() ?? "")
+    .catch(() => "");
+
+  return { name, rating, totalReviews, address };
 }

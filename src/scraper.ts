@@ -1,15 +1,20 @@
 import { chromium } from "playwright";
-import { randomDelay } from "./utils";
+import { join } from "path";
+import { mkdirSync } from "fs";
+import { randomDelay, sanitizeFilename } from "./utils";
 import {
   SELECTORS,
   parseReviewCard,
+  parseBusinessInfo,
   expandAllReviews,
   getLoadedReviewCount,
   findReviewsTab,
   type Review,
+  type Business,
 } from "./parser";
 
 export interface ScrapeResult {
+  business: Business;
   reviews: Review[];
   totalFound: number;
   url: string;
@@ -20,6 +25,7 @@ export interface ScrapeOptions {
   url: string;
   maxReviews: number;
   headless: boolean;
+  minStars?: number;
 }
 
 /** Extract a human-readable place name from a Google Maps URL */
@@ -29,10 +35,47 @@ function extractPlaceName(url: string): string | null {
   return match[1].replace(/\+/g, " ");
 }
 
+async function downloadProfilePics(
+  reviews: Review[],
+  outputDir: string
+): Promise<void> {
+  const imagesDir = join(outputDir, "images");
+  mkdirSync(imagesDir, { recursive: true });
+
+  const total = reviews.filter((r) => r.profilePicUrl).length;
+  let completed = 0;
+
+  const results = await Promise.allSettled(
+    reviews.map(async (review, index) => {
+      if (!review.profilePicUrl) return;
+
+      const filename = `${sanitizeFilename(review.reviewerName)}-${index}.jpg`;
+      const filepath = join(imagesDir, filename);
+
+      const response = await fetch(review.profilePicUrl);
+      if (!response.ok) return;
+
+      const buffer = await response.arrayBuffer();
+      await Bun.write(filepath, buffer);
+
+      review.profilePicPath = filepath;
+      completed++;
+      if (completed % 5 === 0 || completed === total) {
+        console.log(`Downloading profile pictures... (${completed}/${total})`);
+      }
+    })
+  );
+
+  const failed = results.filter((r) => r.status === "rejected").length;
+  if (failed > 0) {
+    console.log(`Warning: ${failed} profile picture(s) failed to download.`);
+  }
+}
+
 export async function scrapeReviews(
   options: ScrapeOptions
 ): Promise<ScrapeResult> {
-  const { url, maxReviews, headless } = options;
+  const { url, maxReviews, headless, minStars } = options;
 
   const browser = await chromium.launch({
     headless,
@@ -131,6 +174,16 @@ export async function scrapeReviews(
     }
     await randomDelay(500, 1000);
 
+    // Scrape business metadata before switching to Reviews tab
+    console.log("Extracting business metadata...");
+    const business = await parseBusinessInfo(page);
+    if (business.rating) {
+      console.log(`  Rating: ${business.rating} (${business.totalReviews} reviews)`);
+    }
+    if (business.address) {
+      console.log(`  Address: ${business.address}`);
+    }
+
     // Click Reviews tab if not already active
     const reviewsTab = await findReviewsTab(page);
     if (reviewsTab) {
@@ -205,13 +258,24 @@ export async function scrapeReviews(
     const reviewCards = cards.slice(0, maxReviews);
 
     console.log(`Parsing ${reviewCards.length} reviews...`);
-    const reviews: Review[] = [];
+    let reviews: Review[] = [];
     for (const card of reviewCards) {
       const review = await parseReviewCard(card);
       reviews.push(review);
     }
 
+    // Filter by minimum star rating
+    if (minStars) {
+      const before = reviews.length;
+      reviews = reviews.filter((r) => r.stars >= minStars);
+      console.log(`Filtered by ${minStars}+ stars: ${reviews.length}/${before} reviews kept.`);
+    }
+
+    // Download profile pictures
+    await downloadProfilePics(reviews, "output");
+
     return {
+      business,
       reviews,
       totalFound: cards.length,
       url,

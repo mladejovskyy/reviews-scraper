@@ -1,7 +1,11 @@
 import { join } from "path";
 
 export function upscaleProfilePicUrl(url: string): string {
-  return url.replace(/=s\d+-c/, "=s256-c");
+  // Handle =w36-h36-... format → =w512-h512-...
+  // Handle =s72-c format → =s512-c
+  return url
+    .replace(/=w\d+-h\d+/, "=w512-h512")
+    .replace(/=s\d+-c/, "=s512-c");
 }
 
 export function randomDelay(min: number, max: number): Promise<void> {
@@ -23,6 +27,14 @@ export function isValidGoogleMapsUrl(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF -]/g, "")
+    .replace(/\s+/g, "-")
+    .toLowerCase()
+    .slice(0, 50) || "unknown";
 }
 
 export function getOutputFilePath(format: string): string {
