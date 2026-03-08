@@ -9,8 +9,8 @@
 ## Quick wins
 
 - [x] **Auto-create output directory** — `mkdirSync("output", { recursive: true })` before writing so it works on a fresh clone without the directory existing.
-- [ ] **Accept plain place name** — Allow `bun run src/index.ts 'Zámecký hotel & wellness'` instead of requiring a full URL. Uses the existing search fallback.
-- [ ] **Progress summary** — After scraping, print a breakdown: total reviews, average rating, star distribution, count with/without text.
+- [x] **Accept plain place name** — Allow `bun run src/index.ts 'Zámecký hotel & wellness'` instead of requiring a full URL. Uses the existing search fallback.
+- [x] **Progress summary** — After scraping, print a breakdown: total reviews, average rating, star distribution, count with/without text.
 
 ## Nice to have
 

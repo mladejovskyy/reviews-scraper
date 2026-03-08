@@ -1,13 +1,13 @@
 import { parseArgs } from "util";
 import { mkdirSync } from "fs";
 import { isValidGoogleMapsUrl, getOutputFilePath } from "./utils";
-import { scrapeReviews } from "./scraper";
+import { scrapeReviews, type ScrapeResult } from "./scraper";
 
 const USAGE = `
 Google Reviews Scraper
 
 Usage:
-  bun run src/index.ts <google-maps-url> [options]
+  bun run src/index.ts <google-maps-url-or-place-name> [options]
 
 Options:
   --max <number>       Maximum reviews to scrape (default: 50)
@@ -16,11 +16,35 @@ Options:
   --no-headless        Show browser window for debugging
   --help               Show this help message
 
-Example:
+Examples:
   bun run src/index.ts 'https://www.google.com/maps/place/...' --max=20
+  bun run src/index.ts 'Zámecký hotel & wellness' --max=10
 
-Note: Use single quotes around the URL to prevent shell history expansion of ! characters.
+Note: Use single quotes around the URL/name to prevent shell expansion of special characters.
 `;
+
+function printSummary(result: ScrapeResult) {
+  const { reviews, business } = result;
+  const total = reviews.length;
+
+  if (total === 0) {
+    console.log("\nNo reviews scraped.");
+    return;
+  }
+
+  const avg = (reviews.reduce((sum, r) => sum + r.stars, 0) / total).toFixed(1);
+  const withText = reviews.filter((r) => r.text).length;
+  const dist = [1, 2, 3, 4, 5].map(
+    (s) => `${s}★: ${reviews.filter((r) => r.stars === s).length}`
+  );
+
+  console.log(`\n--- Summary ---`);
+  if (business.name) console.log(`Business: ${business.name}`);
+  console.log(`Reviews scraped: ${total}`);
+  console.log(`Average rating: ${avg}`);
+  console.log(`Distribution: ${dist.join("  ")}`);
+  console.log(`With text: ${withText}/${total}`);
+}
 
 function main() {
   const { values, positionals } = parseArgs({
@@ -40,19 +64,20 @@ function main() {
     process.exit(0);
   }
 
-  const url = positionals[0];
-  if (!url) {
-    console.error("Error: Please provide a Google Maps URL.\n");
+  const input = positionals[0];
+  if (!input) {
+    console.error("Error: Please provide a Google Maps URL or place name.\n");
     console.log(USAGE);
     process.exit(1);
   }
 
-  if (!isValidGoogleMapsUrl(url)) {
-    console.error(
-      "Error: Invalid Google Maps URL. Expected a URL like:\n" +
-        "  https://www.google.com/maps/place/...\n"
-    );
-    process.exit(1);
+  let url: string;
+  if (isValidGoogleMapsUrl(input)) {
+    url = input;
+  } else {
+    // Treat as a plain place name — build a Google Maps search URL
+    url = `https://www.google.com/maps/search/${encodeURIComponent(input)}`;
+    console.log(`Searching Google Maps for: "${input}"`);
   }
 
   const maxReviews = parseInt(values.max!, 10);
@@ -99,7 +124,7 @@ async function run(
     const outputPath = getOutputFilePath(outputFormat);
     await Bun.write(outputPath, JSON.stringify(result, null, 2));
 
-    console.log(`\nDone! ${result.reviews.length} reviews scraped.`);
+    printSummary(result);
     console.log(`Output saved to: ${outputPath}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
