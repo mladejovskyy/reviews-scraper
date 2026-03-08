@@ -70,6 +70,10 @@ docs/plan.md       # Detailed project plan
 2. **Web UI** — Next.js app with scraping API route
 3. **Figma Plugin** — Paste a URL, auto-populate design layers with real review data
 
+## Disclaimer
+
+This tool is for educational and personal use only. Scraping Google Maps may violate Google's Terms of Service. The authors are not responsible for how this tool is used. Use at your own risk.
+
 ## License
 
 Personal use only.

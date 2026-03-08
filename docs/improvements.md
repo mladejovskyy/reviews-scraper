@@ -19,4 +19,4 @@
 - [ ] **Translated text** — Option to grab original vs Google-translated review text.
 - [ ] **Multiple URLs** — Accept a file with URLs to batch-scrape several businesses in one run.
 - [ ] **Retry logic** — Auto-retry on flaky page loads or timeouts.
-- [ ] **Force English UI** — `--lang=en` flag to append `?hl=en` to the URL so the page loads in English regardless of IP location.
+- [x] **Force English UI** — `--lang=en` flag to append `?hl=en` to the URL so the page loads in English regardless of IP location.

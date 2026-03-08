@@ -75,7 +75,12 @@ async function downloadProfilePics(
 export async function scrapeReviews(
   options: ScrapeOptions
 ): Promise<ScrapeResult> {
-  const { url, maxReviews, headless, minStars } = options;
+  const { url: rawUrl, maxReviews, headless, minStars } = options;
+
+  // Force English UI for consistent selectors regardless of IP/locale
+  const urlObj = new URL(rawUrl);
+  urlObj.searchParams.set("hl", "en");
+  const url = urlObj.toString();
 
   const browser = await chromium.launch({
     headless,
