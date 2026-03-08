@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import { join } from "path";
 import { mkdirSync } from "fs";
 import { randomDelay, sanitizeFilename } from "./utils";
+import { rankReviews } from "./ranker";
 import {
   SELECTORS,
   parseReviewCard,
@@ -26,6 +27,7 @@ export interface ScrapeOptions {
   maxReviews: number;
   headless: boolean;
   minStars?: number;
+  aiRank?: boolean;
 }
 
 /** Extract a human-readable place name from a Google Maps URL */
@@ -75,7 +77,7 @@ async function downloadProfilePics(
 export async function scrapeReviews(
   options: ScrapeOptions
 ): Promise<ScrapeResult> {
-  const { url: rawUrl, maxReviews, headless, minStars } = options;
+  const { url: rawUrl, maxReviews, headless, minStars, aiRank } = options;
 
   // Force English UI for consistent selectors regardless of IP/locale
   const urlObj = new URL(rawUrl);
@@ -274,6 +276,11 @@ export async function scrapeReviews(
       const before = reviews.length;
       reviews = reviews.filter((r) => r.stars >= minStars);
       console.log(`Filtered by ${minStars}+ stars: ${reviews.length}/${before} reviews kept.`);
+    }
+
+    // AI ranking (before pic downloads so sorted order is reflected)
+    if (aiRank) {
+      reviews = await rankReviews(reviews);
     }
 
     // Download profile pictures

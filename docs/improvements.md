@@ -12,6 +12,10 @@
 - [x] **Accept plain place name** — Allow `bun run src/index.ts 'Zámecký hotel & wellness'` instead of requiring a full URL. Uses the existing search fallback.
 - [x] **Progress summary** — After scraping, print a breakdown: total reviews, average rating, star distribution, count with/without text.
 
+## Next up
+
+- [x] **AI review ranking** — `--ai-rank` flag that sends review texts to Claude Haiku 4.5 and reorders them by how well they'd work on a website. Scores based on specificity, sentiment, length, and professionalism. Adds a `relevanceScore` field to each review.
+
 ## Nice to have
 
 - [ ] **Sort control** — `--sort=newest|highest|lowest` to control review order via Google Maps' sort dropdown.

@@ -12,6 +12,7 @@ Usage:
 Options:
   --max <number>       Maximum reviews to scrape (default: 50)
   --min-stars <1-5>    Only include reviews with this rating or higher
+  --ai-rank            Rank reviews by website-worthiness using AI (requires ANTHROPIC_API_KEY)
   --output <format>    Output format: json (default: json)
   --no-headless        Show browser window for debugging
   --help               Show this help message
@@ -53,6 +54,7 @@ function main() {
       max: { type: "string", default: "50" },
       "min-stars": { type: "string" },
       output: { type: "string", default: "json" },
+      "ai-rank": { type: "boolean", default: false },
       "no-headless": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
@@ -101,12 +103,21 @@ function main() {
     process.exit(1);
   }
 
+  const aiRank = values["ai-rank"]!;
+  if (aiRank && !process.env.ANTHROPIC_API_KEY) {
+    console.error(
+      "Error: --ai-rank requires ANTHROPIC_API_KEY environment variable.\n" +
+        "Set it in your .env file or export it in your shell."
+    );
+    process.exit(1);
+  }
+
   const headless = !values["no-headless"];
 
   // Ensure output directories exist
   mkdirSync("output/images", { recursive: true });
 
-  run(url, maxReviews, outputFormat, headless, minStars);
+  run(url, maxReviews, outputFormat, headless, minStars, aiRank);
 }
 
 async function run(
@@ -114,12 +125,13 @@ async function run(
   maxReviews: number,
   outputFormat: string,
   headless: boolean,
-  minStars?: number
+  minStars?: number,
+  aiRank?: boolean
 ) {
   try {
     console.log(`\nScraping reviews from:\n  ${url}\n`);
 
-    const result = await scrapeReviews({ url, maxReviews, headless, minStars });
+    const result = await scrapeReviews({ url, maxReviews, headless, minStars, aiRank });
 
     const outputPath = getOutputFilePath(outputFormat);
     await Bun.write(outputPath, JSON.stringify(result, null, 2));

@@ -8,6 +8,7 @@ export interface Review {
   profilePicUrl: string;
   profilePicPath?: string;
   date: string;
+  relevanceScore?: number;
 }
 
 export interface Business {
