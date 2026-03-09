@@ -262,6 +262,8 @@ export async function scrapeReviews(
     }
 
     // Scroll-and-count loop
+    // Load extra cards to account for potential DOM duplicates
+    const scrollTarget = maxReviews * 2;
     console.log(`Scrolling to load up to ${maxReviews} reviews...`);
     let stagnantScrolls = 0;
     let previousCount = 0;
@@ -277,7 +279,7 @@ export async function scrapeReviews(
       const currentCount = await getLoadedReviewCount(page);
       console.log(`  Scroll ${i + 1}: ${currentCount} reviews loaded`);
 
-      if (currentCount >= maxReviews) {
+      if (currentCount >= scrollTarget) {
         console.log("Target review count reached.");
         break;
       }

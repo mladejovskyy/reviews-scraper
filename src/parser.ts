@@ -117,7 +117,10 @@ export async function parseBusinessInfo(page: Page): Promise<Business> {
   const rating = parseFloat(ratingText) || 0;
 
   const reviewCountText = await page
-    .$eval(SELECTORS.businessReviewCount, (el) => el.getAttribute("aria-label") ?? "")
+    .$$eval(SELECTORS.businessReviewCount, (els) => {
+      const el = els.find((e) => /review/i.test(e.getAttribute("aria-label") ?? ""));
+      return el?.getAttribute("aria-label") ?? "";
+    })
     .catch(() => "");
   const countMatch = reviewCountText.match(/([\d,. ]+)/);
   const totalReviews = countMatch
