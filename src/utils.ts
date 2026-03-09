@@ -38,12 +38,12 @@ export function sanitizeFilename(name: string): string {
     .slice(0, 50) || "unknown";
 }
 
-export function getOutputFilePath(format: string): string {
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/:/g, "-")
-    .replace(/\.\d+Z$/, "");
-  return join("output", `reviews-${timestamp}.${format}`);
+export function getExportDir(businessName: string): string {
+  const name = sanitizeFilename(businessName) || "unknown";
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const timestamp = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+  return join("output", `${name}-${timestamp}`);
 }
 
 function csvEscape(value: string | number | undefined): string {

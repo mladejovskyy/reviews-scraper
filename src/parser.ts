@@ -96,6 +96,7 @@ export async function expandAllReviews(page: Page): Promise<void> {
   }
 }
 
+
 export async function getReviewCards(page: Page) {
   const cards = await page.$$(SELECTORS.reviewCard);
   if (cards.length > 0) return cards;
@@ -118,7 +119,8 @@ export async function parseBusinessInfo(page: Page): Promise<Business> {
 
   const reviewCountText = await page
     .$$eval(SELECTORS.businessReviewCount, (els) => {
-      const el = els.find((e) => /review/i.test(e.getAttribute("aria-label") ?? ""));
+      // Match any aria-label containing digits — works regardless of UI language
+      const el = els.find((e) => /\d/.test(e.getAttribute("aria-label") ?? ""));
       return el?.getAttribute("aria-label") ?? "";
     })
     .catch(() => "");

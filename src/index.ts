@@ -1,7 +1,8 @@
 import { parseArgs } from "util";
 import { mkdirSync } from "fs";
-import { isValidGoogleMapsUrl, getOutputFilePath, toCSV } from "./utils";
-import { scrapeReviews, type ScrapeResult } from "./scraper";
+import { join } from "path";
+import { isValidGoogleMapsUrl, getExportDir, toCSV } from "./utils";
+import { scrapeReviews, downloadProfilePics, type ScrapeResult } from "./scraper";
 
 const USAGE = `
 Google Reviews Scraper
@@ -128,8 +129,8 @@ function main() {
 
   const headless = !values["no-headless"];
 
-  // Ensure output directories exist
-  mkdirSync("output/images", { recursive: true });
+  // Ensure output directory exists
+  mkdirSync("output", { recursive: true });
 
   run(url, maxReviews, outputFormat, headless, minStars, aiRank, sort);
 }
@@ -148,12 +149,17 @@ async function run(
 
     const result = await scrapeReviews({ url, maxReviews, headless, minStars, aiRank, sort });
 
-    const outputPath = getOutputFilePath(outputFormat);
+    const exportDir = getExportDir(result.business.name);
+    mkdirSync(exportDir, { recursive: true });
+
+    await downloadProfilePics(result.reviews, exportDir);
+
+    const outputPath = join(exportDir, `reviews.${outputFormat}`);
     const content = outputFormat === "csv" ? toCSV(result) : JSON.stringify(result, null, 2);
     await Bun.write(outputPath, content);
 
     printSummary(result);
-    console.log(`Output saved to: ${outputPath}`);
+    console.log(`Output saved to: ${exportDir}/`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`\nScraping failed: ${message}`);

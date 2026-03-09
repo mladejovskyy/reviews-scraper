@@ -39,7 +39,7 @@ function extractPlaceName(url: string): string | null {
   return match[1].replace(/\+/g, " ");
 }
 
-async function downloadProfilePics(
+export async function downloadProfilePics(
   reviews: Review[],
   outputDir: string
 ): Promise<void> {
@@ -53,7 +53,8 @@ async function downloadProfilePics(
     reviews.map(async (review, index) => {
       if (!review.profilePicUrl) return;
 
-      const filename = `${sanitizeFilename(review.reviewerName)}-${index}.jpg`;
+      const padded = String(index + 1).padStart(4, "0");
+      const filename = `${padded}-${sanitizeFilename(review.reviewerName)}.jpg`;
       const filepath = join(imagesDir, filename);
 
       const response = await fetch(review.profilePicUrl);
@@ -81,10 +82,7 @@ export async function scrapeReviews(
 ): Promise<ScrapeResult> {
   const { url: rawUrl, maxReviews, headless, minStars, aiRank, sort } = options;
 
-  // Force English UI for consistent selectors regardless of IP/locale
-  const urlObj = new URL(rawUrl);
-  urlObj.searchParams.set("hl", "en");
-  const url = urlObj.toString();
+  const url = rawUrl;
 
   const browser = await chromium.launch({
     headless,
@@ -97,7 +95,6 @@ export async function scrapeReviews(
 
   try {
     const context = await browser.newContext({
-      locale: "en-US",
       userAgent:
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       viewport: { width: 1280, height: 800 },
@@ -112,7 +109,7 @@ export async function scrapeReviews(
         get: () => [1, 2, 3, 4, 5],
       });
       Object.defineProperty(navigator, "languages", {
-        get: () => ["en-US", "en"],
+        get: () => navigator.language ? [navigator.language] : ["en-US", "en"],
       });
       // @ts-ignore
       window.chrome = { runtime: {} };
@@ -206,35 +203,26 @@ export async function scrapeReviews(
     }
 
     // Apply sort order if requested
+    // Google Maps sort menu order is always: 0=Most relevant, 1=Newest, 2=Highest rating, 3=Lowest rating
     if (sort) {
-      const sortLabels: Record<string, string> = {
-        newest: "Newest",
-        highest: "Highest rating",
-        lowest: "Lowest rating",
+      const sortIndex: Record<string, number> = {
+        newest: 1,
+        highest: 2,
+        lowest: 3,
       };
-      const targetLabel = sortLabels[sort];
-      console.log(`Sorting reviews by: ${targetLabel}...`);
+      console.log(`Sorting reviews by: ${sort}...`);
 
       const sortButton = await page.$(SELECTORS.sortButton);
       if (sortButton) {
         await sortButton.click();
         await randomDelay(1000, 1500);
 
-        // Find and click the matching menu item
         const menuItems = await page.$$('div[role="menuitemradio"], div[role="menuitem"]');
-        let clicked = false;
-        for (const item of menuItems) {
-          const text = await item.textContent() ?? "";
-          if (text.trim().toLowerCase().includes(targetLabel.toLowerCase())) {
-            await item.click();
-            clicked = true;
-            break;
-          }
-        }
-
-        if (clicked) {
+        const target = menuItems[sortIndex[sort]];
+        if (target) {
+          await target.click();
           await randomDelay(2000, 3000);
-          console.log(`Sort applied: ${targetLabel}`);
+          console.log(`Sort applied: ${sort}`);
         } else {
           console.log("Warning: Could not find sort option in menu. Using default order.");
         }
@@ -335,9 +323,6 @@ export async function scrapeReviews(
     if (aiRank) {
       reviews = await rankReviews(reviews);
     }
-
-    // Download profile pictures
-    await downloadProfilePics(reviews, "output");
 
     return {
       business,
