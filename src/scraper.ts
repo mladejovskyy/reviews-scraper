@@ -30,6 +30,7 @@ export interface ScrapeOptions {
   minStars?: number;
   aiRank?: boolean;
   sort?: "newest" | "highest" | "lowest";
+  onProgress?: (message: string) => void;
 }
 
 /** Extract a human-readable place name from a Google Maps URL */
@@ -41,8 +42,10 @@ function extractPlaceName(url: string): string | null {
 
 export async function downloadProfilePics(
   reviews: Review[],
-  outputDir: string
+  outputDir: string,
+  onProgress?: (message: string) => void
 ): Promise<void> {
+  const log = (msg: string) => { console.log(msg); onProgress?.(msg); };
   const imagesDir = join(outputDir, "images");
   mkdirSync(imagesDir, { recursive: true });
 
@@ -66,21 +69,22 @@ export async function downloadProfilePics(
       review.profilePicPath = filepath;
       completed++;
       if (completed % 5 === 0 || completed === total) {
-        console.log(`Downloading profile pictures... (${completed}/${total})`);
+        log(`Downloading profile pictures... (${completed}/${total})`);
       }
     })
   );
 
   const failed = results.filter((r) => r.status === "rejected").length;
   if (failed > 0) {
-    console.log(`Warning: ${failed} profile picture(s) failed to download.`);
+    log(`Warning: ${failed} profile picture(s) failed to download.`);
   }
 }
 
 export async function scrapeReviews(
   options: ScrapeOptions
 ): Promise<ScrapeResult> {
-  const { url: rawUrl, maxReviews, headless, minStars, aiRank, sort } = options;
+  const { url: rawUrl, maxReviews, headless, minStars, aiRank, sort, onProgress } = options;
+  const log = (msg: string) => { console.log(msg); onProgress?.(msg); };
 
   const url = rawUrl;
 
@@ -118,7 +122,7 @@ export async function scrapeReviews(
     const page = await context.newPage();
 
     // Navigate directly to the place URL
-    console.log("Navigating to place URL...");
+    log("Navigating to place URL...");
     await withRetry(() => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }));
     await randomDelay(2000, 3000);
 
@@ -127,12 +131,12 @@ export async function scrapeReviews(
       'button[aria-label="Accept all"], form[action*="consent"] button'
     );
     if (consentButton) {
-      console.log("Accepting consent dialog...");
+      log("Accepting consent dialog...");
       await consentButton.click();
       await randomDelay(2000, 3000);
 
       // Re-navigate — consent redirect loses the place data
-      console.log("Re-navigating to place URL...");
+      log("Re-navigating to place URL...");
       await withRetry(() => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }));
       await randomDelay(2000, 3000);
     }
@@ -144,7 +148,7 @@ export async function scrapeReviews(
 
     // If place didn't load (Google stripped the URL), use search as fallback
     if (!h1Text?.trim() && placeName) {
-      console.log(`Place didn't load via URL. Searching for "${placeName}"...`);
+      log(`Place didn't load via URL. Searching for "${placeName}"...`);
       const searchBox = await page.$('input#searchboxinput, input[name="q"]');
       if (searchBox) {
         await searchBox.click();
@@ -165,7 +169,7 @@ export async function scrapeReviews(
     }
 
     // Verify place loaded
-    console.log("Waiting for place to load...");
+    log("Waiting for place to load...");
     await withRetry(
       () => page.waitForSelector('h1', { timeout: 15000 }),
       2
@@ -177,29 +181,29 @@ export async function scrapeReviews(
 
     const loadedName = await page.$eval('h1', (el) => el.textContent?.trim() ?? '').catch(() => '');
     if (loadedName) {
-      console.log(`Place loaded: ${loadedName}`);
+      log(`Place loaded: ${loadedName}`);
     }
     await randomDelay(500, 1000);
 
     // Scrape business metadata before switching to Reviews tab
-    console.log("Extracting business metadata...");
+    log("Extracting business metadata...");
     const business = await parseBusinessInfo(page);
     if (business.rating) {
-      console.log(`  Rating: ${business.rating} (${business.totalReviews} reviews)`);
+      log(`  Rating: ${business.rating} (${business.totalReviews} reviews)`);
     }
     if (business.address) {
-      console.log(`  Address: ${business.address}`);
+      log(`  Address: ${business.address}`);
     }
 
     // Click Reviews tab if not already active
     const reviewsTab = await findReviewsTab(page);
     if (reviewsTab) {
       const tabText = await reviewsTab.textContent() ?? "";
-      console.log(`Clicking Reviews tab: "${tabText.trim()}"...`);
+      log(`Clicking Reviews tab: "${tabText.trim()}"...`);
       await reviewsTab.click();
       await randomDelay(2000, 3000);
     } else {
-      console.log("Warning: Could not find Reviews tab. Continuing anyway...");
+      log("Warning: Could not find Reviews tab. Continuing anyway...");
     }
 
     // Apply sort order if requested
@@ -210,7 +214,7 @@ export async function scrapeReviews(
         highest: 2,
         lowest: 3,
       };
-      console.log(`Sorting reviews by: ${sort}...`);
+      log(`Sorting reviews by: ${sort}...`);
 
       const sortButton = await page.$(SELECTORS.sortButton);
       if (sortButton) {
@@ -222,12 +226,12 @@ export async function scrapeReviews(
         if (target) {
           await target.click();
           await randomDelay(2000, 3000);
-          console.log(`Sort applied: ${sort}`);
+          log(`Sort applied: ${sort}`);
         } else {
-          console.log("Warning: Could not find sort option in menu. Using default order.");
+          log("Warning: Could not find sort option in menu. Using default order.");
         }
       } else {
-        console.log("Warning: Sort button not found. Using default order.");
+        log("Warning: Sort button not found. Using default order.");
       }
     }
 
@@ -252,7 +256,7 @@ export async function scrapeReviews(
     // Scroll-and-count loop
     // Load extra cards to account for potential DOM duplicates
     const scrollTarget = maxReviews * 2;
-    console.log(`Scrolling to load up to ${maxReviews} reviews...`);
+    log(`Scrolling to load up to ${maxReviews} reviews...`);
     let stagnantScrolls = 0;
     let previousCount = 0;
     const MAX_STAGNANT = 5;
@@ -265,17 +269,17 @@ export async function scrapeReviews(
       await randomDelay(1000, 2500);
 
       const currentCount = await getLoadedReviewCount(page);
-      console.log(`  Scroll ${i + 1}: ${currentCount} reviews loaded`);
+      log(`  Scroll ${i + 1}: ${currentCount} reviews loaded`);
 
       if (currentCount >= scrollTarget) {
-        console.log("Target review count reached.");
+        log("Target review count reached.");
         break;
       }
 
       if (currentCount === previousCount) {
         stagnantScrolls++;
         if (stagnantScrolls >= MAX_STAGNANT) {
-          console.log(
+          log(
             `No new reviews after ${MAX_STAGNANT} scrolls. All reviews likely loaded.`
           );
           break;
@@ -288,14 +292,14 @@ export async function scrapeReviews(
     }
 
     // Expand truncated reviews
-    console.log("Expanding truncated reviews...");
+    log("Expanding truncated reviews...");
     await expandAllReviews(page);
     await randomDelay(500, 1000);
 
     // Parse all review cards, deduplicate, then apply max limit
     const cards = await getReviewCards(page);
 
-    console.log(`Parsing ${cards.length} reviews...`);
+    log(`Parsing ${cards.length} reviews...`);
     let reviews: Review[] = [];
     const seen = new Set<string>();
     for (const card of cards) {
@@ -307,7 +311,7 @@ export async function scrapeReviews(
     }
 
     if (cards.length !== reviews.length) {
-      console.log(`Deduplicated: ${cards.length} → ${reviews.length} unique reviews.`);
+      log(`Deduplicated: ${cards.length} → ${reviews.length} unique reviews.`);
     }
 
     reviews = reviews.slice(0, maxReviews);
@@ -316,12 +320,12 @@ export async function scrapeReviews(
     if (minStars) {
       const before = reviews.length;
       reviews = reviews.filter((r) => r.stars >= minStars);
-      console.log(`Filtered by ${minStars}+ stars: ${reviews.length}/${before} reviews kept.`);
+      log(`Filtered by ${minStars}+ stars: ${reviews.length}/${before} reviews kept.`);
     }
 
     // AI ranking (before pic downloads so sorted order is reflected)
     if (aiRank) {
-      reviews = await rankReviews(reviews);
+      reviews = await rankReviews(reviews, onProgress);
     }
 
     return {

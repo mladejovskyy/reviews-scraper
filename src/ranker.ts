@@ -13,17 +13,18 @@ Scoring criteria:
 Respond with ONLY a JSON array of objects with "index" and "score" fields. Example:
 [{"index": 0, "score": 8}, {"index": 1, "score": 3}]`;
 
-export async function rankReviews(reviews: Review[]): Promise<Review[]> {
+export async function rankReviews(reviews: Review[], onProgress?: (message: string) => void): Promise<Review[]> {
+  const log = (msg: string) => { console.log(msg); onProgress?.(msg); };
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    console.log("Warning: ANTHROPIC_API_KEY not set. Skipping AI ranking.");
+    log("Warning: ANTHROPIC_API_KEY not set. Skipping AI ranking.");
     return reviews;
   }
 
   // Only rank reviews that have text
   const reviewsWithText = reviews.filter((r) => r.text);
   if (reviewsWithText.length === 0) {
-    console.log("No reviews with text to rank.");
+    log("No reviews with text to rank.");
     return reviews;
   }
 
@@ -34,7 +35,7 @@ export async function rankReviews(reviews: Review[]): Promise<Review[]> {
   const userPrompt = `Score these ${reviewsWithText.length} reviews:\n\n${reviewList}`;
 
   try {
-    console.log(`Ranking ${reviewsWithText.length} reviews with AI...`);
+    log(`Ranking ${reviewsWithText.length} reviews with AI...`);
 
     const client = new Anthropic({ apiKey });
     const message = await client.messages.create({
@@ -54,7 +55,7 @@ export async function rankReviews(reviews: Review[]): Promise<Review[]> {
     // Extract JSON array from response (may be wrapped in markdown code block)
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      console.log("Warning: Could not parse AI ranking response. Skipping.");
+      log("Warning: Could not parse AI ranking response. Skipping.");
       return reviews;
     }
 
@@ -79,11 +80,11 @@ export async function rankReviews(reviews: Review[]): Promise<Review[]> {
     // Sort all reviews by relevanceScore descending
     reviews.sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0));
 
-    console.log("AI ranking complete.");
+    log("AI ranking complete.");
     return reviews;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.log(`Warning: AI ranking failed (${message}). Returning reviews unsorted.`);
+    log(`Warning: AI ranking failed (${message}). Returning reviews unsorted.`);
     return reviews;
   }
 }

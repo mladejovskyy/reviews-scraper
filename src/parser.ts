@@ -115,19 +115,52 @@ export async function parseBusinessInfo(page: Page): Promise<Business> {
   const ratingText = await page
     .$eval(SELECTORS.businessRating, (el) => el.textContent?.trim() ?? "")
     .catch(() => "");
-  const rating = parseFloat(ratingText) || 0;
+  const rating = parseFloat(ratingText.replace(",", ".")) || 0;
 
+  let totalReviews = 0;
+
+  // Approach 1: aria-label on span inside div.F7nice (skip role="img" which is the star rating)
   const reviewCountText = await page
     .$$eval(SELECTORS.businessReviewCount, (els) => {
-      // Match any aria-label containing digits — works regardless of UI language
-      const el = els.find((e) => /\d/.test(e.getAttribute("aria-label") ?? ""));
+      const el = els.find(
+        (e) =>
+          /\d/.test(e.getAttribute("aria-label") ?? "") &&
+          e.getAttribute("role") !== "img"
+      );
       return el?.getAttribute("aria-label") ?? "";
     })
     .catch(() => "");
-  const countMatch = reviewCountText.match(/([\d,. ]+)/);
-  const totalReviews = countMatch
-    ? parseInt(countMatch[1].replace(/[,.\s]/g, ""), 10)
-    : 0;
+  const countMatch = reviewCountText.match(/(\d[\d,.\s]*\d|\d)/);
+  if (countMatch) {
+    totalReviews = parseInt(countMatch[1].replace(/[,.\s]/g, ""), 10);
+  }
+
+  // Approach 2: extract from Reviews tab text, e.g. "Recenze(123)" or "Reviews (1,234)"
+  if (!totalReviews || isNaN(totalReviews)) {
+    const tabText = await page
+      .$$eval('button[role="tab"]', (tabs) => {
+        const tab = tabs.find((t) => /\(\d/.test(t.textContent ?? ""));
+        return tab?.textContent ?? "";
+      })
+      .catch(() => "");
+    const tabMatch = tabText.match(/\((\d[\d,.\s]*)\)/);
+    if (tabMatch) {
+      totalReviews = parseInt(tabMatch[1].replace(/[,.\s]/g, ""), 10);
+    }
+  }
+
+  // Approach 3: visible text near rating — look for any element with review count text like "(240)"
+  if (!totalReviews || isNaN(totalReviews)) {
+    const fNiceText = await page
+      .$eval('div.F7nice', (el) => el.textContent ?? "")
+      .catch(() => "");
+    const visibleMatch = fNiceText.match(/\((\d[\d,.\s]*)\)/);
+    if (visibleMatch) {
+      totalReviews = parseInt(visibleMatch[1].replace(/[,.\s]/g, ""), 10);
+    }
+  }
+
+  if (isNaN(totalReviews)) totalReviews = 0;
 
   const address = await page
     .$eval(SELECTORS.businessAddress, (el) => el.textContent?.trim() ?? "")

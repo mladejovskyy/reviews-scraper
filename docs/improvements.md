@@ -16,6 +16,10 @@
 
 - [x] **AI review ranking** — `--ai-rank` flag that sends review texts to Claude Haiku 4.5 and reorders them by how well they'd work on a website. Scores based on specificity, sentiment, length, and professionalism. Adds a `relevanceScore` field to each review.
 
+## Phase 2
+
+- [x] **Web UI** — Next.js app in `web/` with URL input, real-time SSE progress, results table, and JSON/CSV/ZIP download. Run with `cd web && bun run dev`.
+
 ## Nice to have
 
 - [x] **Sort control** — `--sort=newest|highest|lowest` to control review order via Google Maps' sort dropdown.
