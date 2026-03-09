@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import { join } from "path";
 import { mkdirSync } from "fs";
-import { randomDelay, sanitizeFilename } from "./utils";
+import { randomDelay, sanitizeFilename, withRetry } from "./utils";
 import { rankReviews } from "./ranker";
 import {
   SELECTORS,
@@ -9,6 +9,7 @@ import {
   parseBusinessInfo,
   expandAllReviews,
   getLoadedReviewCount,
+  getReviewCards,
   findReviewsTab,
   type Review,
   type Business,
@@ -28,6 +29,7 @@ export interface ScrapeOptions {
   headless: boolean;
   minStars?: number;
   aiRank?: boolean;
+  sort?: "newest" | "highest" | "lowest";
 }
 
 /** Extract a human-readable place name from a Google Maps URL */
@@ -77,7 +79,7 @@ async function downloadProfilePics(
 export async function scrapeReviews(
   options: ScrapeOptions
 ): Promise<ScrapeResult> {
-  const { url: rawUrl, maxReviews, headless, minStars, aiRank } = options;
+  const { url: rawUrl, maxReviews, headless, minStars, aiRank, sort } = options;
 
   // Force English UI for consistent selectors regardless of IP/locale
   const urlObj = new URL(rawUrl);
@@ -120,7 +122,7 @@ export async function scrapeReviews(
 
     // Navigate directly to the place URL
     console.log("Navigating to place URL...");
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await withRetry(() => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }));
     await randomDelay(2000, 3000);
 
     // Handle Google consent dialog (EU GDPR)
@@ -134,7 +136,7 @@ export async function scrapeReviews(
 
       // Re-navigate — consent redirect loses the place data
       console.log("Re-navigating to place URL...");
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+      await withRetry(() => page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }));
       await randomDelay(2000, 3000);
     }
 
@@ -167,13 +169,14 @@ export async function scrapeReviews(
 
     // Verify place loaded
     console.log("Waiting for place to load...");
-    await page
-      .waitForSelector('h1', { timeout: 15000 })
-      .catch(() => {
-        throw new Error(
-          "Place details did not load. Check that the URL points to a valid Google Maps place."
-        );
-      });
+    await withRetry(
+      () => page.waitForSelector('h1', { timeout: 15000 }),
+      2
+    ).catch(() => {
+      throw new Error(
+        "Place details did not load. Check that the URL points to a valid Google Maps place."
+      );
+    });
 
     const loadedName = await page.$eval('h1', (el) => el.textContent?.trim() ?? '').catch(() => '');
     if (loadedName) {
@@ -202,14 +205,53 @@ export async function scrapeReviews(
       console.log("Warning: Could not find Reviews tab. Continuing anyway...");
     }
 
+    // Apply sort order if requested
+    if (sort) {
+      const sortLabels: Record<string, string> = {
+        newest: "Newest",
+        highest: "Highest rating",
+        lowest: "Lowest rating",
+      };
+      const targetLabel = sortLabels[sort];
+      console.log(`Sorting reviews by: ${targetLabel}...`);
+
+      const sortButton = await page.$(SELECTORS.sortButton);
+      if (sortButton) {
+        await sortButton.click();
+        await randomDelay(1000, 1500);
+
+        // Find and click the matching menu item
+        const menuItems = await page.$$('div[role="menuitemradio"], div[role="menuitem"]');
+        let clicked = false;
+        for (const item of menuItems) {
+          const text = await item.textContent() ?? "";
+          if (text.trim().toLowerCase().includes(targetLabel.toLowerCase())) {
+            await item.click();
+            clicked = true;
+            break;
+          }
+        }
+
+        if (clicked) {
+          await randomDelay(2000, 3000);
+          console.log(`Sort applied: ${targetLabel}`);
+        } else {
+          console.log("Warning: Could not find sort option in menu. Using default order.");
+        }
+      } else {
+        console.log("Warning: Sort button not found. Using default order.");
+      }
+    }
+
     // Wait for review cards to appear
-    await page
-      .waitForSelector(SELECTORS.reviewCard, { timeout: 10000 })
-      .catch(() => {
-        throw new Error(
-          "No reviews found. The URL may not have reviews, or the page structure may have changed."
-        );
-      });
+    await withRetry(
+      () => page.waitForSelector(`${SELECTORS.reviewCard}, ${SELECTORS.reviewCardFallback}`, { timeout: 10000 }),
+      2
+    ).catch(() => {
+      throw new Error(
+        "No reviews found. The URL may not have reviews, or the page structure may have changed."
+      );
+    });
 
     // Find scrollable panel
     const scrollablePanel = await page.$(SELECTORS.scrollablePanel);
@@ -260,16 +302,25 @@ export async function scrapeReviews(
     await expandAllReviews(page);
     await randomDelay(500, 1000);
 
-    // Parse all review cards
-    const cards = await page.$$(SELECTORS.reviewCard);
-    const reviewCards = cards.slice(0, maxReviews);
+    // Parse all review cards, deduplicate, then apply max limit
+    const cards = await getReviewCards(page);
 
-    console.log(`Parsing ${reviewCards.length} reviews...`);
+    console.log(`Parsing ${cards.length} reviews...`);
     let reviews: Review[] = [];
-    for (const card of reviewCards) {
+    const seen = new Set<string>();
+    for (const card of cards) {
       const review = await parseReviewCard(card);
+      const key = `${review.reviewerName}::${review.text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       reviews.push(review);
     }
+
+    if (cards.length !== reviews.length) {
+      console.log(`Deduplicated: ${cards.length} → ${reviews.length} unique reviews.`);
+    }
+
+    reviews = reviews.slice(0, maxReviews);
 
     // Filter by minimum star rating
     if (minStars) {

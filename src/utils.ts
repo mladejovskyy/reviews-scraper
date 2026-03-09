@@ -44,3 +44,22 @@ export function getOutputFilePath(format: string): string {
     .replace(/\.\d+Z$/, "");
   return join("output", `reviews-${timestamp}.${format}`);
 }
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  baseDelayMs = 2000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === maxAttempts) throw error;
+      const delay = baseDelayMs * attempt;
+      const msg = error instanceof Error ? error.message : String(error);
+      console.log(`Attempt ${attempt}/${maxAttempts} failed: ${msg}. Retrying in ${delay}ms...`);
+      await randomDelay(delay, delay + 1000);
+    }
+  }
+  throw new Error("Retries exhausted");
+}

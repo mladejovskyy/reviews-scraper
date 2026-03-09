@@ -12,6 +12,7 @@ Usage:
 Options:
   --max <number>       Maximum reviews to scrape (default: 50)
   --min-stars <1-5>    Only include reviews with this rating or higher
+  --sort <order>       Sort reviews: newest, highest, lowest (default: Google's relevance)
   --ai-rank            Rank reviews by website-worthiness using AI (requires ANTHROPIC_API_KEY)
   --output <format>    Output format: json (default: json)
   --no-headless        Show browser window for debugging
@@ -53,6 +54,7 @@ function main() {
     options: {
       max: { type: "string", default: "50" },
       "min-stars": { type: "string" },
+      sort: { type: "string" },
       output: { type: "string", default: "json" },
       "ai-rank": { type: "boolean", default: false },
       "no-headless": { type: "boolean", default: false },
@@ -97,6 +99,17 @@ function main() {
     }
   }
 
+  const validSorts = ["newest", "highest", "lowest"] as const;
+  type SortOption = (typeof validSorts)[number];
+  let sort: SortOption | undefined;
+  if (values.sort) {
+    if (!validSorts.includes(values.sort as SortOption)) {
+      console.error(`Error: --sort must be one of: ${validSorts.join(", ")}.\n`);
+      process.exit(1);
+    }
+    sort = values.sort as SortOption;
+  }
+
   const outputFormat = values.output!;
   if (outputFormat !== "json") {
     console.error("Error: Only JSON output is currently supported.\n");
@@ -117,7 +130,7 @@ function main() {
   // Ensure output directories exist
   mkdirSync("output/images", { recursive: true });
 
-  run(url, maxReviews, outputFormat, headless, minStars, aiRank);
+  run(url, maxReviews, outputFormat, headless, minStars, aiRank, sort);
 }
 
 async function run(
@@ -126,12 +139,13 @@ async function run(
   outputFormat: string,
   headless: boolean,
   minStars?: number,
-  aiRank?: boolean
+  aiRank?: boolean,
+  sort?: "newest" | "highest" | "lowest"
 ) {
   try {
     console.log(`\nScraping reviews from:\n  ${url}\n`);
 
-    const result = await scrapeReviews({ url, maxReviews, headless, minStars, aiRank });
+    const result = await scrapeReviews({ url, maxReviews, headless, minStars, aiRank, sort });
 
     const outputPath = getOutputFilePath(outputFormat);
     await Bun.write(outputPath, JSON.stringify(result, null, 2));

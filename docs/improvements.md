@@ -18,9 +18,9 @@
 
 ## Nice to have
 
-- [ ] **Sort control** — `--sort=newest|highest|lowest` to control review order via Google Maps' sort dropdown.
+- [x] **Sort control** — `--sort=newest|highest|lowest` to control review order via Google Maps' sort dropdown.
 - [ ] **Owner responses** — Include the business owner's reply text if present on a review.
 - [ ] **Translated text** — Option to grab original vs Google-translated review text.
 - [ ] **Multiple URLs** — Accept a file with URLs to batch-scrape several businesses in one run.
-- [ ] **Retry logic** — Auto-retry on flaky page loads or timeouts.
+- [x] **Retry logic** — Auto-retry on flaky page loads or timeouts.
 - [x] **Force English UI** — `--lang=en` flag to append `?hl=en` to the URL so the page loads in English regardless of IP location.

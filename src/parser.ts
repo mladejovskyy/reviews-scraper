@@ -19,7 +19,8 @@ export interface Business {
 }
 
 export const SELECTORS = {
-  reviewCard: 'div[data-review-id], .jftiEf',
+  reviewCard: 'div[data-review-id]',
+  reviewCardFallback: '.jftiEf',
   // Stars: aria-label contains a digit followed by a space — works in any language
   stars: 'span[role="img"]',
   reviewText: ".wiI7pd",
@@ -29,6 +30,7 @@ export const SELECTORS = {
   // "See more" / "Zobrazit více" etc. — match by class instead
   moreButton: 'button.w8nwRe.kyuRq',
   scrollablePanel: 'div[role="feed"], .m6QErb.DxyBCb',
+  sortButton: 'button[aria-label="Sort reviews"], button[data-value="sort"], .y7PRA',
   // Reviews tab: use role="tab" and match the tab that contains a review count (digits in parentheses)
   reviewsTab: 'button[role="tab"]',
   // Business metadata selectors
@@ -94,8 +96,14 @@ export async function expandAllReviews(page: Page): Promise<void> {
   }
 }
 
+export async function getReviewCards(page: Page) {
+  const cards = await page.$$(SELECTORS.reviewCard);
+  if (cards.length > 0) return cards;
+  return page.$$(SELECTORS.reviewCardFallback);
+}
+
 export async function getLoadedReviewCount(page: Page): Promise<number> {
-  return (await page.$$(SELECTORS.reviewCard)).length;
+  return (await getReviewCards(page)).length;
 }
 
 export async function parseBusinessInfo(page: Page): Promise<Business> {

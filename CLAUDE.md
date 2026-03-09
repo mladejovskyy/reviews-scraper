@@ -58,6 +58,10 @@ bun run src/index.ts "https://maps.google.com/maps/place/..." --max=50 --output=
 - Profile pic upscaling: replace `=s72-c` with `=s256-c` in URL
 - Small-scale personal use only
 
+## Workflow
+
+- After implementing an improvement, check it off in `docs/improvements.md` (change `- [ ]` to `- [x]`)
+
 ## Phases
 
 1. **Phase 1 (MVP):** CLI script — Playwright scraper outputting JSON
