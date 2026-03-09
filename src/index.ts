@@ -1,6 +1,6 @@
 import { parseArgs } from "util";
 import { mkdirSync } from "fs";
-import { isValidGoogleMapsUrl, getOutputFilePath } from "./utils";
+import { isValidGoogleMapsUrl, getOutputFilePath, toCSV } from "./utils";
 import { scrapeReviews, type ScrapeResult } from "./scraper";
 
 const USAGE = `
@@ -14,7 +14,7 @@ Options:
   --min-stars <1-5>    Only include reviews with this rating or higher
   --sort <order>       Sort reviews: newest, highest, lowest (default: Google's relevance)
   --ai-rank            Rank reviews by website-worthiness using AI (requires ANTHROPIC_API_KEY)
-  --output <format>    Output format: json (default: json)
+  --output <format>    Output format: json, csv (default: json)
   --no-headless        Show browser window for debugging
   --help               Show this help message
 
@@ -110,9 +110,10 @@ function main() {
     sort = values.sort as SortOption;
   }
 
+  const validFormats = ["json", "csv"];
   const outputFormat = values.output!;
-  if (outputFormat !== "json") {
-    console.error("Error: Only JSON output is currently supported.\n");
+  if (!validFormats.includes(outputFormat)) {
+    console.error(`Error: --output must be one of: ${validFormats.join(", ")}.\n`);
     process.exit(1);
   }
 
@@ -148,7 +149,8 @@ async function run(
     const result = await scrapeReviews({ url, maxReviews, headless, minStars, aiRank, sort });
 
     const outputPath = getOutputFilePath(outputFormat);
-    await Bun.write(outputPath, JSON.stringify(result, null, 2));
+    const content = outputFormat === "csv" ? toCSV(result) : JSON.stringify(result, null, 2);
+    await Bun.write(outputPath, content);
 
     printSummary(result);
     console.log(`Output saved to: ${outputPath}`);

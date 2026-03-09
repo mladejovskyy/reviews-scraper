@@ -1,4 +1,5 @@
 import { join } from "path";
+import type { ScrapeResult } from "./scraper";
 
 export function upscaleProfilePicUrl(url: string): string {
   // Handle =w36-h36-... format → =w512-h512-...
@@ -43,6 +44,35 @@ export function getOutputFilePath(format: string): string {
     .replace(/:/g, "-")
     .replace(/\.\d+Z$/, "");
   return join("output", `reviews-${timestamp}.${format}`);
+}
+
+function csvEscape(value: string | number | undefined): string {
+  const str = value == null ? "" : String(value);
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+export function toCSV(result: ScrapeResult): string {
+  const headers = ["reviewerName", "stars", "date", "text", "profilePicUrl", "profilePicPath", "relevanceScore"];
+  const lines = [headers.join(",")];
+
+  for (const r of result.reviews) {
+    lines.push(
+      [
+        csvEscape(r.reviewerName),
+        csvEscape(r.stars),
+        csvEscape(r.date),
+        csvEscape(r.text),
+        csvEscape(r.profilePicUrl),
+        csvEscape(r.profilePicPath),
+        csvEscape(r.relevanceScore),
+      ].join(",")
+    );
+  }
+
+  return lines.join("\n") + "\n";
 }
 
 export async function withRetry<T>(
