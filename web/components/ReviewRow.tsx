@@ -1,4 +1,5 @@
 import StarRating from "./StarRating";
+import CopyButton from "./CopyButton";
 import type { Review } from "@/lib/types";
 
 interface ReviewRowProps {
@@ -16,16 +17,18 @@ export default function ReviewRow({
     <tr className="border-b border-gray-100 hover:bg-gray-50">
       <td className="py-3 px-4 text-sm text-gray-400">{index + 1}</td>
       <td className="py-3 px-4">
-        <div className="flex items-center gap-3">
+        <div className="group flex items-center gap-2">
           {review.profilePicUrl && (
             <img
               src={review.profilePicUrl}
               alt={review.reviewerName}
-              className="w-8 h-8 rounded-full bg-gray-200"
+              className="w-8 h-8 rounded-full bg-gray-200 shrink-0"
+              referrerPolicy="no-referrer"
               loading="lazy"
             />
           )}
           <span className="font-medium text-sm">{review.reviewerName}</span>
+          {review.reviewerName && <CopyButton text={review.reviewerName} />}
         </div>
       </td>
       <td className="py-3 px-4">
@@ -34,7 +37,10 @@ export default function ReviewRow({
       <td className="py-3 px-4 text-sm text-gray-500">{review.date}</td>
       <td className="py-3 px-4 text-sm text-gray-700 max-w-md">
         {review.text ? (
-          <p className="line-clamp-3">{review.text}</p>
+          <div className="group flex items-start gap-2">
+            <p className="line-clamp-3">{review.text}</p>
+            <CopyButton text={review.text} />
+          </div>
         ) : (
           <span className="italic text-gray-400">No text</span>
         )}

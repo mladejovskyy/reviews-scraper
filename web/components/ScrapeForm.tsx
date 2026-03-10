@@ -47,7 +47,7 @@ export default function ScrapeForm({ onSubmit, disabled }: ScrapeFormProps) {
         <button
           type="submit"
           disabled={disabled || !url.trim()}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
         >
           {disabled ? "Scraping..." : "Scrape"}
         </button>
@@ -56,7 +56,7 @@ export default function ScrapeForm({ onSubmit, disabled }: ScrapeFormProps) {
       <button
         type="button"
         onClick={() => setShowOptions(!showOptions)}
-        className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+        className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 cursor-pointer"
       >
         <span
           className={`transition-transform inline-block ${showOptions ? "rotate-90" : ""}`}
