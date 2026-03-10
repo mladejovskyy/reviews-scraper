@@ -1,79 +1,140 @@
 # Google Reviews Scraper
 
-Scrape Google Reviews from any Google Maps/Business URL into structured JSON. Extracts reviewer names, review text, star ratings, dates, and upscaled profile picture URLs.
+Scrape Google Reviews from any business into structured data — with a web UI or CLI. Extracts reviewer names, review text, star ratings, dates, profile pictures, and business metadata.
 
-## Setup
+![Web UI](https://img.shields.io/badge/Web_UI-Next.js_15-black) ![CLI](https://img.shields.io/badge/CLI-Bun-f5a623) ![Playwright](https://img.shields.io/badge/Browser-Playwright-2ead33)
 
-```bash
-# Install dependencies
-bun install
+---
 
-# Install Playwright browser
-bunx playwright install chromium
-```
+## Quick Start
 
-## Usage
+### 1. Install
 
 ```bash
-# Use single quotes to prevent shell expansion of ! characters in URLs
-bun run src/index.ts 'https://www.google.com/maps/place/...' --max=50
+# Clone & install (use bun or npm)
+bun install            # or: npm install
+bunx playwright install chromium   # or: npx playwright install chromium
 
-# Show browser window for debugging
-bun run src/index.ts 'https://www.google.com/maps/place/...' --max=5 --no-headless
+# Set up the web app
+cd web
+bun install            # or: npm install
 ```
 
-### Options
+### 2. Run the Web UI
 
-| Flag            | Default | Description                         |
-| --------------- | ------- | ----------------------------------- |
-| `--max`         | `50`    | Maximum number of reviews to scrape |
-| `--output`      | `json`  | Output format (`json`)              |
-| `--no-headless` | `false` | Show browser window for debugging   |
-| `--help`        |         | Show usage info                     |
-
-Output is saved to the `output/` directory with a timestamped filename.
-
-## Output Format
-
-```json
-[
-  {
-    "reviewerName": "John Doe",
-    "text": "Great place, highly recommend!",
-    "stars": 5,
-    "profilePicUrl": "https://lh3.googleusercontent.com/a/...=s256-c",
-    "date": "2 months ago"
-  }
-]
+```bash
+cd web
+bun run dev            # or: npm run dev
 ```
 
-## Tech Stack
+Open [http://localhost:3000](http://localhost:3000) — enter a Google Maps URL or place name, hit Scrape, and watch the results stream in.
 
-- **TypeScript** + **Bun**
-- **Playwright** for browser automation
+### 3. Download Results
+
+After scraping, download as **JSON**, **CSV**, or **ZIP** (includes profile pictures). All previous scrapes are listed below the form — download or delete them anytime.
+
+---
+
+## AI Review Ranking (Optional)
+
+Rank reviews by how well they'd work on a website — scores each review 1–10 based on specificity, professionalism, and usefulness.
+
+### Setup
+
+1. Get an API key from [console.anthropic.com](https://console.anthropic.com)
+2. Create a `.env` file in the project root:
+
+```bash
+cp .env.example .env
+```
+
+3. Add your key:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+4. Symlink it for the web app (if not already done):
+
+```bash
+ln -s ../.env web/.env
+```
+
+5. Check the **AI rank reviews** option in the web UI before scraping.
+
+---
+
+## CLI Usage
+
+The CLI works independently of the web app.
+
+```bash
+# Search by place name
+bun run src/index.ts 'My Favorite Restaurant' --max=20
+# or: npx tsx src/index.ts 'My Favorite Restaurant' --max=20
+
+# Google Maps URL with filters
+bun run src/index.ts 'https://www.google.com/maps/place/...' --min-stars=4 --sort=newest
+
+# AI ranking + CSV export
+bun run src/index.ts 'My Favorite Restaurant' --max=30 --ai-rank --output=csv
+
+# Debug mode (visible browser)
+bun run src/index.ts 'My Favorite Restaurant' --max=5 --no-headless
+```
+
+### CLI Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--max` | `50` | Maximum reviews to scrape |
+| `--min-stars` | — | Filter by minimum rating (1–5) |
+| `--sort` | relevance | Sort: `newest`, `highest`, `lowest` |
+| `--ai-rank` | off | Rank reviews by website-worthiness (requires API key) |
+| `--output` | `json` | Output format: `json`, `csv` |
+| `--no-headless` | off | Show browser window for debugging |
+
+Output is saved to `output/` with timestamped directories.
+
+---
 
 ## Project Structure
 
 ```
-src/
-├── index.ts       # CLI entry point, arg parsing
-├── scraper.ts     # Playwright scraping logic
-├── parser.ts      # DOM parsing, data extraction
-└── utils.ts       # URL manipulation, helpers
-output/            # Generated output files
-docs/plan.md       # Detailed project plan
+src/                          # Shared scraper core (CLI + Web)
+├── index.ts                  # CLI entry point
+├── scraper.ts                # Playwright browser automation
+├── parser.ts                 # DOM parsing & data extraction
+├── ranker.ts                 # AI review ranking (Claude)
+└── utils.ts                  # URL helpers, CSV export, retry logic
+
+web/                          # Next.js web app
+├── app/
+│   ├── page.tsx              # Main UI
+│   └── api/
+│       ├── scrape/           # POST — start scrape job
+│       ├── jobs/[jobId]/     # GET  — SSE progress stream
+│       ├── download/[jobId]/ # GET  — download results
+│       └── outputs/          # GET/DELETE — manage previous scrapes
+├── components/               # React components
+└── lib/                      # Job store, types
+
+output/                       # Scraped data (auto-created)
 ```
 
-## Roadmap
+---
 
-1. **CLI Script (MVP)** — Playwright scraper outputting JSON *(current phase)*
-2. **Web UI** — Next.js app with scraping API route
-3. **Figma Plugin** — Paste a URL, auto-populate design layers with real review data
+## Tech Stack
+
+- **TypeScript** + **Bun** runtime
+- **Playwright** for headless browser automation
+- **Next.js 15** (App Router) + **React 19** for the web UI
+- **Tailwind CSS v4** for styling
+- **Claude Haiku** for AI review ranking
+- **SSE** for real-time scrape progress
+
+---
 
 ## Disclaimer
 
-This tool is for educational and personal use only. Scraping Google Maps may violate Google's Terms of Service. The authors are not responsible for how this tool is used. Use at your own risk.
-
-## License
-
-Personal use only.
+This tool is for personal use only. Scraping Google Maps may violate Google's Terms of Service. Use at your own risk.
