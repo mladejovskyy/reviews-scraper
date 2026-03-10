@@ -1,6 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { Search, ChevronDown, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 interface ScrapeFormProps {
   onSubmit: (options: {
@@ -17,8 +36,8 @@ export default function ScrapeForm({ onSubmit, disabled }: ScrapeFormProps) {
   const [url, setUrl] = useState("");
   const [showOptions, setShowOptions] = useState(false);
   const [maxReviews, setMaxReviews] = useState(10);
-  const [minStars, setMinStars] = useState<number | undefined>();
-  const [sort, setSort] = useState<"newest" | "highest" | "lowest" | "">("");
+  const [minStars, setMinStars] = useState<string>("");
+  const [sort, setSort] = useState<string>("");
   const [aiRank, setAiRank] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -27,117 +46,144 @@ export default function ScrapeForm({ onSubmit, disabled }: ScrapeFormProps) {
     onSubmit({
       url: url.trim(),
       maxReviews,
-      minStars,
-      sort: sort || undefined,
+      minStars: minStars ? parseInt(minStars) : undefined,
+      sort: (sort as "newest" | "highest" | "lowest") || undefined,
       aiRank,
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex gap-3">
-        <input
-          type="text"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="Google Maps URL or place name..."
-          className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-          disabled={disabled}
-        />
-        <button
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="Google Maps URL or place name..."
+            className="pl-9 h-11"
+            disabled={disabled}
+          />
+        </div>
+        <Button
           type="submit"
           disabled={disabled || !url.trim()}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+          className="h-11 px-6"
         >
-          {disabled ? "Scraping..." : "Scrape"}
-        </button>
+          {disabled ? (
+            <>
+              <span className="animate-spin mr-1">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              </span>
+              Scraping...
+            </>
+          ) : (
+            "Scrape"
+          )}
+        </Button>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setShowOptions(!showOptions)}
-        className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 cursor-pointer"
-      >
-        <span
-          className={`transition-transform inline-block ${showOptions ? "rotate-90" : ""}`}
-        >
-          ▶
-        </span>
-        Options
-      </button>
-
-      {showOptions && (
-        <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Max reviews
-            </label>
-            <input
-              type="number"
-              value={maxReviews}
-              onChange={(e) => setMaxReviews(parseInt(e.target.value) || 50)}
-              min={1}
-              max={500}
-              className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              disabled={disabled}
+      <Collapsible open={showOptions} onOpenChange={setShowOptions}>
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground gap-1.5 -ml-2"
+          >
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 transition-transform",
+                showOptions && "rotate-180"
+              )}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Min stars
-            </label>
-            <select
-              value={minStars ?? ""}
-              onChange={(e) =>
-                setMinStars(
-                  e.target.value ? parseInt(e.target.value) : undefined
-                )
-              }
-              className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              disabled={disabled}
-            >
-              <option value="">Any</option>
-              <option value="1">1+</option>
-              <option value="2">2+</option>
-              <option value="3">3+</option>
-              <option value="4">4+</option>
-              <option value="5">5 only</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Sort by
-            </label>
-            <select
-              value={sort}
-              onChange={(e) =>
-                setSort(e.target.value as "newest" | "highest" | "lowest" | "")
-              }
-              className="w-full px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              disabled={disabled}
-            >
-              <option value="">Most relevant</option>
-              <option value="newest">Newest</option>
-              <option value="highest">Highest rating</option>
-              <option value="lowest">Lowest rating</option>
-            </select>
-          </div>
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={aiRank}
-                onChange={(e) => setAiRank(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                disabled={disabled}
-              />
-              <span className="text-sm font-medium text-gray-700">
-                AI rank reviews
-              </span>
-            </label>
-          </div>
-        </div>
-      )}
+            Options
+          </Button>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <Card className="mt-2 p-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="maxReviews">Max reviews</Label>
+                <Input
+                  id="maxReviews"
+                  type="number"
+                  value={maxReviews}
+                  onChange={(e) =>
+                    setMaxReviews(parseInt(e.target.value) || 10)
+                  }
+                  min={1}
+                  max={500}
+                  disabled={disabled}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Min stars</Label>
+                <Select
+                  value={minStars}
+                  onValueChange={setMinStars}
+                  disabled={disabled}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Any</SelectItem>
+                    <SelectItem value="1">1+</SelectItem>
+                    <SelectItem value="2">2+</SelectItem>
+                    <SelectItem value="3">3+</SelectItem>
+                    <SelectItem value="4">4+</SelectItem>
+                    <SelectItem value="5">5 only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Sort by</Label>
+                <Select
+                  value={sort}
+                  onValueChange={setSort}
+                  disabled={disabled}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Most relevant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="relevant">Most relevant</SelectItem>
+                    <SelectItem value="newest">Newest</SelectItem>
+                    <SelectItem value="highest">Highest rating</SelectItem>
+                    <SelectItem value="lowest">Lowest rating</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-end pb-1">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="aiRank"
+                    checked={aiRank}
+                    onCheckedChange={setAiRank}
+                    disabled={disabled}
+                  />
+                  <Label
+                    htmlFor="aiRank"
+                    className="flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    AI rank reviews
+                  </Label>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </CollapsibleContent>
+      </Collapsible>
     </form>
   );
 }

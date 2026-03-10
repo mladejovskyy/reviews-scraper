@@ -1,12 +1,16 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { AlertCircle, RotateCcw } from "lucide-react";
 import ScrapeForm from "@/components/ScrapeForm";
 import ProgressFeed from "@/components/ProgressFeed";
 import BusinessCard from "@/components/BusinessCard";
 import ReviewsTable from "@/components/ReviewsTable";
 import DownloadBar from "@/components/DownloadBar";
 import OutputHistory from "@/components/OutputHistory";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { ScrapeResult } from "@/lib/types";
 
 type AppState = "idle" | "scraping" | "complete" | "error";
@@ -56,7 +60,6 @@ export default function Home() {
         const { jobId: id } = await res.json();
         setJobId(id);
 
-        // Connect to SSE stream
         const eventSource = new EventSource(`/api/jobs/${id}`);
 
         eventSource.onmessage = (event) => {
@@ -97,13 +100,16 @@ export default function Home() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Google Reviews Scraper
-        </h1>
-        <p className="mt-2 text-gray-500">
-          Extract reviews from Google Maps for website mockups
-        </p>
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Google Reviews Scraper
+          </h1>
+          <p className="mt-1.5 text-muted-foreground">
+            Extract reviews from Google Maps for website mockups
+          </p>
+        </div>
+        <ThemeToggle />
       </div>
 
       <ScrapeForm onSubmit={handleSubmit} disabled={state === "scraping"} />
@@ -115,20 +121,19 @@ export default function Home() {
       )}
 
       {state === "error" && error && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          <p className="font-medium">Scraping failed</p>
-          <p className="text-sm mt-1">{error}</p>
-        </div>
+        <Alert variant="destructive" className="mt-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Scraping failed</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {(state === "complete" || state === "error") && (
         <div className="mt-6">
-          <button
-            onClick={handleReset}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-          >
+          <Button variant="outline" onClick={handleReset}>
+            <RotateCcw className="h-4 w-4" />
             New Scrape
-          </button>
+          </Button>
         </div>
       )}
 

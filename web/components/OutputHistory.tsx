@@ -1,8 +1,35 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import {
+  ChevronRight,
+  FileJson,
+  FileSpreadsheet,
+  FolderArchive,
+  Trash2,
+} from "lucide-react";
 import StarRating from "./StarRating";
 import ReviewsTable from "./ReviewsTable";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 import type { ScrapeResult } from "@/lib/types";
 
 interface OutputEntry {
@@ -40,8 +67,6 @@ export default function OutputHistory({ refreshKey }: OutputHistoryProps) {
   }, [fetchEntries, refreshKey]);
 
   const handleDelete = async (dirName: string) => {
-    if (!confirm(`Delete "${dirName}"? This cannot be undone.`)) return;
-
     setDeleting(dirName);
     try {
       const res = await fetch(`/api/outputs/${encodeURIComponent(dirName)}`, {
@@ -90,103 +115,144 @@ export default function OutputHistory({ refreshKey }: OutputHistoryProps) {
 
   return (
     <div className="mt-10">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">
-        Previous Scrapes
-      </h2>
+      <h2 className="text-lg font-semibold mb-4">Previous Scrapes</h2>
       <div className="space-y-3">
         {entries.map((entry) => (
-          <div
+          <Collapsible
             key={entry.dirName}
-            className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+            open={expanded === entry.dirName}
+            onOpenChange={() => handleToggle(entry.dirName)}
           >
-            <div className="p-4 flex items-center justify-between gap-4">
-              <div className="min-w-0 flex-1 flex items-center gap-3">
-                <button
-                  onClick={() => handleToggle(entry.dirName)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors shrink-0 cursor-pointer"
-                  title={expanded === entry.dirName ? "Collapse" : "View reviews"}
-                >
-                  <span
-                    className={`inline-block transition-transform ${expanded === entry.dirName ? "rotate-90" : ""}`}
-                  >
-                    ▶
-                  </span>
-                </button>
-                <div className="min-w-0">
-                  <p className="font-medium text-gray-900 truncate">
-                    {entry.businessName}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mt-1">
-                    {entry.rating > 0 && (
-                      <>
-                        <div className="flex items-center gap-1">
-                          <StarRating rating={Math.round(entry.rating)} />
-                          <span>{entry.rating}</span>
-                        </div>
-                        <span>·</span>
-                      </>
-                    )}
-                    {entry.totalReviews > 0 && (
-                      <>
-                        <span>
-                          {entry.totalReviews.toLocaleString()} total reviews
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1 flex items-center gap-3">
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                      >
+                        <ChevronRight
+                          className={cn(
+                            "h-4 w-4 transition-transform",
+                            expanded === entry.dirName && "rotate-90"
+                          )}
+                        />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">
+                        {entry.businessName}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        {entry.rating > 0 && (
+                          <div className="flex items-center gap-1">
+                            <StarRating
+                              rating={Math.round(entry.rating)}
+                            />
+                            <span className="text-sm font-medium">
+                              {entry.rating}
+                            </span>
+                          </div>
+                        )}
+                        {entry.totalReviews > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {entry.totalReviews.toLocaleString()} total
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-xs">
+                          {entry.reviewCount} scraped
+                        </Badge>
+                        {entry.avgStars > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            avg {entry.avgStars}
+                          </Badge>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(entry.scrapedAt).toLocaleDateString(
+                            undefined,
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )}
                         </span>
-                        <span>·</span>
-                      </>
-                    )}
-                    <span>{entry.reviewCount} scraped</span>
-                    {entry.avgStars > 0 && (
-                      <>
-                        <span>·</span>
-                        <span>avg {entry.avgStars}★</span>
-                      </>
-                    )}
-                    <span>·</span>
-                    <span>
-                      {new Date(entry.scrapedAt).toLocaleDateString(undefined, {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {(
+                      [
+                        { fmt: "json", icon: FileJson },
+                        { fmt: "csv", icon: FileSpreadsheet },
+                        { fmt: "zip", icon: FolderArchive },
+                      ] as const
+                    ).map(({ fmt, icon: Icon }) => (
+                      <Button key={fmt} variant="outline" size="sm" asChild>
+                        <a
+                          href={`/api/outputs/${encodeURIComponent(entry.dirName)}/download?format=${fmt}`}
+                          download={`${entry.dirName}.${fmt}`}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          <span className="uppercase text-xs">{fmt}</span>
+                        </a>
+                      </Button>
+                    ))}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                          disabled={deleting === entry.dirName}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {deleting === entry.dirName
+                            ? "Deleting..."
+                            : "Delete"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete scrape data?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete &ldquo;{entry.businessName}&rdquo; and all its data. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(entry.dirName)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
-              </div>
+              </CardContent>
 
-              <div className="flex items-center gap-2 shrink-0">
-                {(["json", "csv", "zip"] as const).map((fmt) => (
-                  <a
-                    key={fmt}
-                    href={`/api/outputs/${encodeURIComponent(entry.dirName)}/download?format=${fmt}`}
-                    download={`${entry.dirName}.${fmt}`}
-                    className="px-3 py-1.5 text-xs font-medium rounded border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition-colors uppercase cursor-pointer"
-                  >
-                    {fmt}
-                  </a>
-                ))}
-                <button
-                  onClick={() => handleDelete(entry.dirName)}
-                  disabled={deleting === entry.dirName}
-                  className="px-3 py-1.5 text-xs font-medium rounded border border-red-200 text-red-600 bg-white hover:bg-red-50 disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  {deleting === entry.dirName ? "Deleting..." : "Delete"}
-                </button>
-              </div>
-            </div>
-
-            {expanded === entry.dirName && (
-              <div className="border-t border-gray-200 p-4">
-                {loading && (
-                  <p className="text-sm text-gray-500">Loading reviews...</p>
-                )}
-                {expandedData && (
-                  <ReviewsTable reviews={expandedData.reviews} />
-                )}
-              </div>
-            )}
-          </div>
+              <CollapsibleContent>
+                <div className="border-t p-4">
+                  {loading && (
+                    <p className="text-sm text-muted-foreground">
+                      Loading reviews...
+                    </p>
+                  )}
+                  {expandedData && (
+                    <ReviewsTable reviews={expandedData.reviews} />
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         ))}
       </div>
     </div>
