@@ -111,6 +111,27 @@ export default function OutputHistory({ refreshKey }: OutputHistoryProps) {
     }
   };
 
+  const handleRemoveReview = async (index: number) => {
+    if (!expanded || !expandedData) return;
+    const updated = expandedData.reviews.filter((_, i) => i !== index);
+    setExpandedData({ ...expandedData, reviews: updated });
+    setEntries((prev) =>
+      prev.map((e) =>
+        e.dirName === expanded ? { ...e, reviewCount: updated.length } : e
+      )
+    );
+
+    try {
+      await fetch(`/api/outputs/${encodeURIComponent(expanded)}/reviews`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index }),
+      });
+    } catch {
+      // ignore
+    }
+  };
+
   if (entries.length === 0) return null;
 
   return (
@@ -247,7 +268,7 @@ export default function OutputHistory({ refreshKey }: OutputHistoryProps) {
                     </p>
                   )}
                   {expandedData && (
-                    <ReviewsTable reviews={expandedData.reviews} />
+                    <ReviewsTable reviews={expandedData.reviews} onRemove={handleRemoveReview} />
                   )}
                 </div>
               </CollapsibleContent>

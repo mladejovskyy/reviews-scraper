@@ -3,9 +3,10 @@ import type { Review } from "@/lib/types";
 
 interface ReviewsTableProps {
   reviews: Review[];
+  onRemove?: (index: number) => void;
 }
 
-export default function ReviewsTable({ reviews }: ReviewsTableProps) {
+export default function ReviewsTable({ reviews, onRemove }: ReviewsTableProps) {
   const hasAiScores = reviews.some((r) => r.relevanceScore !== undefined);
 
   return (
@@ -16,6 +17,7 @@ export default function ReviewsTable({ reviews }: ReviewsTableProps) {
           review={review}
           index={i}
           showAiScore={hasAiScores}
+          onRemove={onRemove ? () => onRemove(i) : undefined}
         />
       ))}
     </div>

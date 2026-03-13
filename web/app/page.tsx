@@ -23,6 +23,27 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
 
+  const handleRemoveReview = useCallback(
+    async (index: number) => {
+      if (!result) return;
+      const updated = result.reviews.filter((_, i) => i !== index);
+      setResult({ ...result, reviews: updated });
+
+      if (jobId) {
+        try {
+          await fetch(`/api/outputs/${encodeURIComponent(jobId)}/reviews`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ index }),
+          });
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [result, jobId]
+  );
+
   const handleReset = useCallback(() => {
     setState("idle");
     setProgress([]);
@@ -145,7 +166,7 @@ export default function Home() {
             {jobId && <DownloadBar jobId={jobId} />}
           </div>
 
-          <ReviewsTable reviews={result.reviews} />
+          <ReviewsTable reviews={result.reviews} onRemove={handleRemoveReview} />
         </div>
       )}
 

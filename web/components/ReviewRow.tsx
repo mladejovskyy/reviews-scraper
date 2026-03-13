@@ -1,19 +1,23 @@
+import { X } from "lucide-react";
 import StarRating from "./StarRating";
 import CopyButton from "./CopyButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { Review } from "@/lib/types";
 
 interface ReviewRowProps {
   review: Review;
   index: number;
   showAiScore: boolean;
+  onRemove?: () => void;
 }
 
 export default function ReviewRow({
   review,
   index,
   showAiScore,
+  onRemove,
 }: ReviewRowProps) {
   return (
     <Card className="group transition-colors hover:shadow-md">
@@ -57,9 +61,21 @@ export default function ReviewRow({
               </p>
             )}
           </div>
-          <span className="text-xs font-mono text-muted-foreground/40 shrink-0">
-            {index + 1}
-          </span>
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <span className="text-xs font-mono text-muted-foreground/40">
+              {index + 1}
+            </span>
+            {onRemove && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                onClick={onRemove}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
