@@ -61,10 +61,20 @@ export async function parseReviewCard(
     .$eval(SELECTORS.reviewerName, (el) => el.textContent?.trim() ?? "")
     .catch(() => "");
 
-  const starsText = await card
+  // Primary: span[role="img"] with aria-label like "5 hvězdiček" or "5 stars"
+  let starsText = await card
     .$eval(SELECTORS.stars, (el) => el.getAttribute("aria-label") ?? "")
     .catch(() => "");
-  const starsMatch = starsText.match(/(\d)/);
+  let starsMatch = starsText.match(/(\d)/);
+
+  // Fallback: text like "4/5" (alternate layout used by hotels etc.)
+  if (!starsMatch) {
+    const ratioText = await card
+      .$eval(".fzvQIb, .DU9Pgb", (el) => el.textContent ?? "")
+      .catch(() => "");
+    starsMatch = ratioText.match(/(\d)\s*\/\s*5/);
+  }
+
   const stars = starsMatch ? parseInt(starsMatch[1], 10) : 0;
 
   const text = await card
@@ -75,9 +85,22 @@ export async function parseReviewCard(
     .$eval(SELECTORS.profileImage, (el) => el.getAttribute("src") ?? "")
     .catch(() => "");
 
-  const date = await card
+  // Primary: .rsqaWe element
+  let date = await card
     .$eval(SELECTORS.date, (el) => el.textContent?.trim() ?? "")
     .catch(() => "");
+
+  // Fallback: date embedded in .xRkPPb (alternate layout), e.g. "Google, před 2 měsíci"
+  if (!date) {
+    const altDateText = await card
+      .$eval(".xRkPPb", (el) => el.textContent?.trim() ?? "")
+      .catch(() => "");
+    // Strip source prefix like "Google, " or "Booking.com, "
+    const commaIdx = altDateText.indexOf(",");
+    if (commaIdx !== -1) {
+      date = altDateText.substring(commaIdx + 1).trim();
+    }
+  }
 
   return {
     reviewerName,

@@ -137,4 +137,8 @@ output/                       # Scraped data (auto-created)
 
 ## Disclaimer
 
-This tool is for personal use only. Scraping Google Maps may violate Google's Terms of Service. Use at your own risk.
+This tool is for educational and personal use only. Scraping Google Maps may violate Google's Terms of Service. The authors are not responsible for any misuse of this software. Use at your own risk.
+
+## License
+
+[MIT](LICENSE)
